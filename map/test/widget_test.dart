@@ -1,11 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:map/map/presentation/config/map_camera_config.dart';
-import 'package:map/map/presentation/config/map_interaction_config.dart';
-import 'package:map/map/presentation/config/map_route_config.dart';
-import 'package:map/map/presentation/config/map_tile_config.dart';
-import 'package:map/map/presentation/config/map_view_config.dart';
-import 'package:map/map/presentation/config/map_widgets_config.dart';
+import 'package:map/map.dart';
 
 void main() {
   test('MapViewConfig default initialization test', () {
