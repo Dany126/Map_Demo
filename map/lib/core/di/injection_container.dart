@@ -4,10 +4,14 @@ import 'package:map/map/domain/repositories/location_repo.dart';
 import 'package:map/map/domain/usecases/get_current_location.dart';
 import 'package:map/map/domain/usecases/get_live_location.dart';
 import 'package:map/map/presentation/cubit/location_cubit.dart';
+import 'package:map/map/presentation/cubit/map_cubit.dart';
 
 GetIt getIt = GetIt.instance;
 
 void setupLocator() {
+  //-------------------------------------------
+  // Location
+  //-------------------------------------------
   // usecases
   getIt.registerLazySingleton<GetCurrentLocation>(
     () => GetCurrentLocation(repo: getIt()),
@@ -19,8 +23,13 @@ void setupLocator() {
   getIt.registerLazySingleton<LocationRepository>(
     () => LocationRepositoryImpl(),
   );
-
+  // cubits
   getIt.registerLazySingleton<LocationCubit>(
     () => LocationCubit(getcurrentlocation: getIt(), getlivelocation: getIt()),
   );
+  //-------------------------------------------
+  // Map
+  //-------------------------------------------
+  // cubits
+  getIt.registerLazySingleton<MapCubit>(() => MapCubit());
 }
