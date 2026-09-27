@@ -1,20 +1,11 @@
 import 'package:flutter/material.dart';
 
-class MapControls extends StatelessWidget {
-  final VoidCallback onZoomIn;
-  final VoidCallback onZoomOut;
-  final VoidCallback onFitAll;
-  final VoidCallback onLocateMe;
-  final VoidCallback? onFitRoute;
+import 'map_control_actions.dart';
 
-  const MapControls({
-    super.key,
-    required this.onZoomIn,
-    required this.onZoomOut,
-    required this.onFitAll,
-    required this.onLocateMe,
-    this.onFitRoute,
-  });
+class MapControls extends StatelessWidget {
+  final MapControlActions actions;
+
+  const MapControls({super.key, required this.actions});
 
   @override
   Widget build(BuildContext context) {
@@ -23,7 +14,7 @@ class MapControls extends StatelessWidget {
       children: [
         FloatingActionButton.small(
           heroTag: 'zoom_in',
-          onPressed: onZoomIn,
+          onPressed: actions.zoomIn,
           child: const Icon(Icons.add),
         ),
 
@@ -31,7 +22,7 @@ class MapControls extends StatelessWidget {
 
         FloatingActionButton.small(
           heroTag: 'zoom_out',
-          onPressed: onZoomOut,
+          onPressed: actions.zoomOut,
           child: const Icon(Icons.remove),
         ),
 
@@ -39,16 +30,16 @@ class MapControls extends StatelessWidget {
 
         FloatingActionButton.small(
           heroTag: 'fit_all',
-          onPressed: onFitAll,
+          onPressed: actions.fitAll,
           child: const Icon(Icons.fit_screen),
         ),
 
-        if (onFitRoute != null) ...[
+        if (actions.canFitRoute) ...[
           const SizedBox(height: 8),
 
           FloatingActionButton.small(
             heroTag: 'fit_route',
-            onPressed: onFitRoute,
+            onPressed: actions.fitRoute,
             child: const Icon(Icons.route),
           ),
         ],
@@ -57,7 +48,7 @@ class MapControls extends StatelessWidget {
 
         FloatingActionButton(
           heroTag: 'locate_me',
-          onPressed: onLocateMe,
+          onPressed: actions.locateMe,
           child: const Icon(Icons.my_location),
         ),
       ],

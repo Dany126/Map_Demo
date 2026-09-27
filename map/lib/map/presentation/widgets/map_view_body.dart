@@ -6,33 +6,31 @@ import 'package:latlong2/latlong.dart';
 import 'package:map/map/domain/entities/map_location.dart';
 import 'package:map/map/domain/entities/map_marker_data.dart';
 import 'package:map/map/domain/entities/map_route.dart';
-import 'package:map/map/presentation/widgets/map_marker_builder.dart';
+import 'package:map/map/presentation/config/map_widgets_config.dart';
 
 import '../cubit/location_cubit.dart';
 import '../cubit/location_state.dart';
+import 'map_control_actions.dart';
 import 'map_controls.dart';
 
 class MapViewBody extends StatefulWidget {
   final List<MapMarkerData> markers;
 
-  final MapMarkerBuilder? userMarkerBuilder;
-
-  final SelectedMapMarkerBuilder? otherMarkerBuilder;
+  final MapRoute? route;
 
   final MapMarkerData? selectedMarker;
 
   final void Function(MapMarkerData marker)? onMarkerTap;
 
-  final MapRoute? route;
+  final MapWidgetsConfig config;
 
   const MapViewBody({
     super.key,
     this.markers = const [],
-    this.userMarkerBuilder,
-    this.otherMarkerBuilder,
+    this.route,
     this.selectedMarker,
     this.onMarkerTap,
-    this.route,
+    this.config = const MapWidgetsConfig(),
   });
 
   @override
@@ -62,7 +60,9 @@ class _MapViewBodyState extends State<MapViewBody> {
       });
     }
 
-    if (oldWidget.route == null && widget.route != null) {
+    if (oldWidget.route == null &&
+        widget.route != null &&
+        widget.config.showRoute) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted) {
           return;
@@ -78,25 +78,23 @@ class _MapViewBodyState extends State<MapViewBody> {
     return BlocBuilder<LocationCubit, LocationState>(
       builder: (context, state) {
         if (state is LocationLoading) {
-          return const Center(child: CircularProgressIndicator());
+          if (!widget.config.showLocationLoading) {
+            return const SizedBox.shrink();
+          }
+
+          return _buildLocationLoading(context);
         }
 
         if (state is LocationError) {
-          return Center(
-            child: Text(state.message, textAlign: TextAlign.center),
-          );
+          if (!widget.config.showLocationError) {
+            return const SizedBox.shrink();
+          }
+
+          return _buildLocationError(context, state.message);
         }
 
         if (state is LocationLoaded) {
-          final location = state.mapLocation;
-
-          final userPosition = LatLng(location.lat, location.lng);
-
-          return _buildMap(
-            context: context,
-            userPosition: userPosition,
-            userLocation: location,
-          );
+          return _buildLoadedMap(context, state.mapLocation);
         }
 
         return const SizedBox.shrink();
@@ -104,11 +102,9 @@ class _MapViewBodyState extends State<MapViewBody> {
     );
   }
 
-  Widget _buildMap({
-    required BuildContext context,
-    required LatLng userPosition,
-    required MapLocation userLocation,
-  }) {
+  Widget _buildLoadedMap(BuildContext context, MapLocation location) {
+    final userPosition = LatLng(location.lat, location.lng);
+
     return Stack(
       children: [
         FlutterMap(
@@ -118,89 +114,148 @@ class _MapViewBodyState extends State<MapViewBody> {
             initialZoom: _defaultZoom,
           ),
           children: [
-            // -----------------------------------------------------------------
-            // Map Tiles
-            // -----------------------------------------------------------------
-
             TileLayer(
               urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
               userAgentPackageName: 'com.example.map',
             ),
 
-            // -----------------------------------------------------------------
-            // Route
-            // -----------------------------------------------------------------
-            if (widget.route != null)
-              PolylineLayer(
-                polylines: [
-                  Polyline(
-                    points: widget.route!.points
-                        .map((point) => LatLng(point.lat, point.lng))
-                        .toList(),
-                    strokeWidth: 5,
-                  ),
-                ],
-              ),
+            if (widget.config.showRoute && widget.route != null)
+              _buildRouteLayer(),
 
-            // -----------------------------------------------------------------
-            // Markers
-            // -----------------------------------------------------------------
             MarkerLayer(
               markers: [
-                _buildUserMarker(
-                  context: context,
-                  position: userPosition,
-                  location: userLocation,
-                ),
+                if (widget.config.showUserMarker)
+                  _buildUserMarker(
+                    context: context,
+                    position: userPosition,
+                    location: location,
+                  ),
 
-                ...widget.markers.map(
-                  (marker) => _buildMarker(context, marker),
-                ),
+                if (widget.config.showMarkers)
+                  ...widget.markers.map((marker) {
+                    return _buildMarker(context, marker);
+                  }),
               ],
             ),
           ],
         ),
 
-        // ---------------------------------------------------------------------
-        // Map Controls
-        // ---------------------------------------------------------------------
-        Positioned(
-          right: 16,
-          bottom: 30,
-          child: MapControls(
-            onZoomIn: _zoomIn,
-            onZoomOut: _zoomOut,
-            onLocateMe: () {
-              _locateMe(userPosition);
-            },
-            onFitRoute: widget.route != null ? _fitRoute : null,
-            onFitAll: () {
-              _fitAllMarkers(userPosition);
-            },
+        if (widget.config.showControls)
+          Positioned(
+            right: 16,
+            bottom: 30,
+            child: _buildControls(context, userPosition),
           ),
+      ],
+    );
+  }
+
+  Widget _buildRouteLayer() {
+    final route = widget.route!;
+
+    return PolylineLayer(
+      polylines: [
+        Polyline(
+          points: route.points
+              .map((point) => LatLng(point.lat, point.lng))
+              .toList(),
+          strokeWidth: 5,
         ),
       ],
     );
   }
 
-  // ===========================================================================
-  // Camera Controls
-  // ===========================================================================
+  Widget _buildControls(BuildContext context, LatLng userPosition) {
+    final actions = MapControlActions(
+      zoomIn: _zoomIn,
+      zoomOut: _zoomOut,
+      locateMe: () {
+        _locateMe(userPosition);
+      },
+      fitAll: () {
+        _fitAllMarkers(userPosition);
+      },
+      fitRoute: _fitRoute,
+      canFitRoute: widget.route != null && widget.config.showRoute,
+    );
+
+    if (widget.config.controlsBuilder != null) {
+      return widget.config.controlsBuilder!(context, actions);
+    }
+
+    return MapControls(actions: actions);
+  }
+
+  Widget _buildLocationLoading(BuildContext context) {
+    if (widget.config.locationLoadingBuilder != null) {
+      return widget.config.locationLoadingBuilder!(context);
+    }
+
+    return const Center(child: CircularProgressIndicator());
+  }
+
+  Widget _buildLocationError(BuildContext context, String message) {
+    if (widget.config.locationErrorBuilder != null) {
+      return widget.config.locationErrorBuilder!(context, message);
+    }
+
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Text(message, textAlign: TextAlign.center),
+      ),
+    );
+  }
+
+  Marker _buildUserMarker({
+    required BuildContext context,
+    required LatLng position,
+    required MapLocation location,
+  }) {
+    final marker = MapMarkerData(id: 'user', location: location, type: 'user');
+
+    return Marker(
+      point: position,
+      width: 50,
+      height: 50,
+      child:
+          widget.config.userMarkerBuilder?.call(context, marker) ??
+          const Icon(Icons.location_pin, size: 45, color: Colors.red),
+    );
+  }
+
+  Marker _buildMarker(BuildContext context, MapMarkerData marker) {
+    final isSelected = widget.selectedMarker?.id == marker.id;
+
+    return Marker(
+      point: LatLng(marker.location.lat, marker.location.lng),
+      width: isSelected ? 65 : 50,
+      height: isSelected ? 65 : 50,
+      child: GestureDetector(
+        onTap: () {
+          widget.onMarkerTap?.call(marker);
+        },
+        child:
+            widget.config.markerBuilder?.call(context, marker, isSelected) ??
+            Icon(
+              Icons.location_on,
+              size: isSelected ? 50 : 40,
+              color: isSelected ? Colors.orange : Colors.blue,
+            ),
+      ),
+    );
+  }
 
   void _zoomIn() {
     final camera = _mapController.camera;
 
-    final newZoom = camera.zoom + 1;
-
-    _mapController.move(camera.center, newZoom);
+    _mapController.move(camera.center, camera.zoom + 1);
   }
 
   void _zoomOut() {
     final camera = _mapController.camera;
 
-    final newZoom = camera.zoom - 1;
-
-    _mapController.move(camera.center, newZoom);
+    _mapController.move(camera.center, camera.zoom - 1);
   }
 
   void _locateMe(LatLng userPosition) {
@@ -216,6 +271,7 @@ class _MapViewBodyState extends State<MapViewBody> {
   void _fitAllMarkers(LatLng userPosition) {
     final points = <LatLng>[
       userPosition,
+
       ...widget.markers.map(
         (marker) => LatLng(marker.location.lat, marker.location.lng),
       ),
@@ -232,57 +288,6 @@ class _MapViewBodyState extends State<MapViewBody> {
     );
   }
 
-  // ===========================================================================
-  // User Marker
-  // ===========================================================================
-
-  Marker _buildUserMarker({
-    required BuildContext context,
-    required LatLng position,
-    required MapLocation location,
-  }) {
-    final userMarker = MapMarkerData(
-      id: 'user',
-      location: location,
-      type: 'user',
-    );
-
-    return Marker(
-      point: position,
-      width: 50,
-      height: 50,
-      child:
-          widget.userMarkerBuilder?.call(context, userMarker) ??
-          const Icon(Icons.location_pin, size: 45, color: Colors.red),
-    );
-  }
-
-  // ===========================================================================
-  // Generic Marker
-  // ===========================================================================
-
-  Marker _buildMarker(BuildContext context, MapMarkerData marker) {
-    final isSelected = widget.selectedMarker?.id == marker.id;
-
-    return Marker(
-      point: LatLng(marker.location.lat, marker.location.lng),
-      width: isSelected ? 65 : 50,
-      height: isSelected ? 65 : 50,
-      child: GestureDetector(
-        onTap: () {
-          widget.onMarkerTap?.call(marker);
-        },
-        child:
-            widget.otherMarkerBuilder?.call(context, marker, isSelected) ??
-            Icon(
-              Icons.location_on,
-              size: isSelected ? 50 : 40,
-              color: isSelected ? Colors.orange : Colors.blue,
-            ),
-      ),
-    );
-  }
-
   void _fitRoute() {
     final route = widget.route;
 
@@ -294,10 +299,11 @@ class _MapViewBodyState extends State<MapViewBody> {
         .map((point) => LatLng(point.lat, point.lng))
         .toList();
 
-    final bounds = LatLngBounds.fromPoints(points);
-
     _mapController.fitCamera(
-      CameraFit.bounds(bounds: bounds, padding: const EdgeInsets.all(80)),
+      CameraFit.bounds(
+        bounds: LatLngBounds.fromPoints(points),
+        padding: const EdgeInsets.all(80),
+      ),
     );
   }
 
