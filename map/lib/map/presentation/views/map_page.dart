@@ -11,7 +11,9 @@ class MapPage extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       body: BlocProvider(
-        create: (context) => getIt<LocationCubit>()..getCurrentLocation(),
+        create: (context) => getIt<LocationCubit>()
+          ..getCurrentLocation()
+          ..startLocationTracking(),
         child: const MapViewBody(),
       ),
     );
