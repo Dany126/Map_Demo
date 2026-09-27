@@ -5,6 +5,7 @@ import 'package:latlong2/latlong.dart';
 
 import 'package:map/map/domain/entities/map_location.dart';
 import 'package:map/map/domain/entities/map_marker_data.dart';
+import 'package:map/map/domain/entities/map_route.dart';
 import 'package:map/map/presentation/widgets/map_marker_builder.dart';
 
 import '../cubit/location_cubit.dart';
@@ -22,6 +23,8 @@ class MapViewBody extends StatefulWidget {
 
   final void Function(MapMarkerData marker)? onMarkerTap;
 
+  final MapRoute? route;
+
   const MapViewBody({
     super.key,
     this.markers = const [],
@@ -29,6 +32,7 @@ class MapViewBody extends StatefulWidget {
     this.otherMarkerBuilder,
     this.selectedMarker,
     this.onMarkerTap,
+    this.route,
   });
 
   @override
@@ -45,10 +49,27 @@ class _MapViewBodyState extends State<MapViewBody> {
     super.didUpdateWidget(oldWidget);
 
     final oldSelectedId = oldWidget.selectedMarker?.id;
+
     final newSelectedId = widget.selectedMarker?.id;
 
     if (oldSelectedId != newSelectedId && widget.selectedMarker != null) {
-      _moveToMarker(widget.selectedMarker!);
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) {
+          return;
+        }
+
+        _moveToMarker(widget.selectedMarker!);
+      });
+    }
+
+    if (oldWidget.route == null && widget.route != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) {
+          return;
+        }
+
+        _fitRoute();
+      });
     }
   }
 
@@ -97,11 +118,33 @@ class _MapViewBodyState extends State<MapViewBody> {
             initialZoom: _defaultZoom,
           ),
           children: [
+            // -----------------------------------------------------------------
+            // Map Tiles
+            // -----------------------------------------------------------------
+
             TileLayer(
               urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
               userAgentPackageName: 'com.example.map',
             ),
 
+            // -----------------------------------------------------------------
+            // Route
+            // -----------------------------------------------------------------
+            if (widget.route != null)
+              PolylineLayer(
+                polylines: [
+                  Polyline(
+                    points: widget.route!.points
+                        .map((point) => LatLng(point.lat, point.lng))
+                        .toList(),
+                    strokeWidth: 5,
+                  ),
+                ],
+              ),
+
+            // -----------------------------------------------------------------
+            // Markers
+            // -----------------------------------------------------------------
             MarkerLayer(
               markers: [
                 _buildUserMarker(
@@ -118,6 +161,9 @@ class _MapViewBodyState extends State<MapViewBody> {
           ],
         ),
 
+        // ---------------------------------------------------------------------
+        // Map Controls
+        // ---------------------------------------------------------------------
         Positioned(
           right: 16,
           bottom: 30,
@@ -127,6 +173,7 @@ class _MapViewBodyState extends State<MapViewBody> {
             onLocateMe: () {
               _locateMe(userPosition);
             },
+            onFitRoute: widget.route != null ? _fitRoute : null,
             onFitAll: () {
               _fitAllMarkers(userPosition);
             },
@@ -136,9 +183,9 @@ class _MapViewBodyState extends State<MapViewBody> {
     );
   }
 
-  // ---------------------------------------------------------------------------
+  // ===========================================================================
   // Camera Controls
-  // ---------------------------------------------------------------------------
+  // ===========================================================================
 
   void _zoomIn() {
     final camera = _mapController.camera;
@@ -185,9 +232,9 @@ class _MapViewBodyState extends State<MapViewBody> {
     );
   }
 
-  // ---------------------------------------------------------------------------
+  // ===========================================================================
   // User Marker
-  // ---------------------------------------------------------------------------
+  // ===========================================================================
 
   Marker _buildUserMarker({
     required BuildContext context,
@@ -210,9 +257,9 @@ class _MapViewBodyState extends State<MapViewBody> {
     );
   }
 
-  // ---------------------------------------------------------------------------
+  // ===========================================================================
   // Generic Marker
-  // ---------------------------------------------------------------------------
+  // ===========================================================================
 
   Marker _buildMarker(BuildContext context, MapMarkerData marker) {
     final isSelected = widget.selectedMarker?.id == marker.id;
@@ -233,6 +280,24 @@ class _MapViewBodyState extends State<MapViewBody> {
               color: isSelected ? Colors.orange : Colors.blue,
             ),
       ),
+    );
+  }
+
+  void _fitRoute() {
+    final route = widget.route;
+
+    if (route == null || route.points.isEmpty) {
+      return;
+    }
+
+    final points = route.points
+        .map((point) => LatLng(point.lat, point.lng))
+        .toList();
+
+    final bounds = LatLngBounds.fromPoints(points);
+
+    _mapController.fitCamera(
+      CameraFit.bounds(bounds: bounds, padding: const EdgeInsets.all(80)),
     );
   }
 

@@ -1,6 +1,6 @@
 import 'package:dartz/dartz.dart';
 import 'package:geolocator/geolocator.dart';
-import 'package:map/map/domain/repositories/location_repo.dart';
+import 'package:map/map/domain/repositories/location_repository.dart';
 
 import '../../../core/errors/error_handler.dart';
 import '../../../core/errors/failures/failure.dart';

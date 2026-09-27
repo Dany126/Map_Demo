@@ -4,10 +4,15 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:map/core/di/injection_container.dart';
 import 'package:map/map/domain/entities/map_location.dart';
 import 'package:map/map/domain/entities/map_marker_data.dart';
+import 'package:map/map/domain/entities/map_route.dart';
 import 'package:map/map/presentation/cubit/location_cubit.dart';
+import 'package:map/map/presentation/cubit/location_state.dart';
 import 'package:map/map/presentation/cubit/map_cubit.dart';
 import 'package:map/map/presentation/cubit/map_state.dart';
+import 'package:map/map/presentation/cubit/route_cubit.dart';
+import 'package:map/map/presentation/cubit/route_state.dart';
 import 'package:map/map/presentation/widgets/map_view_body.dart';
+import 'package:map/map/presentation/widgets/route_info_card.dart';
 
 class MapPage extends StatefulWidget {
   const MapPage({super.key});
@@ -17,6 +22,8 @@ class MapPage extends StatefulWidget {
 }
 
 class MapPageState extends State<MapPage> {
+  MapMarkerData? _selectedMarker;
+
   @override
   Widget build(BuildContext context) {
     final markers = [
@@ -51,31 +58,46 @@ class MapPageState extends State<MapPage> {
               ..startLocationTracking(),
           ),
           BlocProvider(create: (_) => getIt<MapCubit>()),
+          BlocProvider(create: (_) => getIt<RouteCubit>()),
         ],
-        child: Builder(
-          builder: (context) {
-            return BlocListener<MapCubit, MapState>(
+        child: MultiBlocListener(
+          listeners: [
+            BlocListener<MapCubit, MapState>(
               listener: (context, state) {
                 if (state is MapMarkerSelected) {
+                  _selectedMarker = state.marker;
+
                   _showMarkerBottomSheet(context, state.marker);
                 }
               },
-              child: BlocBuilder<MapCubit, MapState>(
-                builder: (context, mapState) {
-                  MapMarkerData? selectedMarker;
+            ),
 
-                  if (mapState is MapMarkerSelected) {
-                    selectedMarker = mapState.marker;
-                  }
+            BlocListener<RouteCubit, RouteState>(
+              listener: (context, state) {
+                if (state is RouteError) {
+                  ScaffoldMessenger.of(context)
+                      .showSnackBar(SnackBar(content: Text(state.message)));
+                }
+              },
+            ),
+          ],
+          child: BlocBuilder<RouteCubit, RouteState>(
+            builder: (context, routeState) {
+              MapRoute? route;
 
-                  return MapViewBody(
+              if (routeState is RouteLoaded) {
+                route = routeState.route;
+              }
+
+              return Stack(
+                children: [
+                  MapViewBody(
                     markers: markers,
-                    selectedMarker: selectedMarker,
-
+                    route: route,
+                    selectedMarker: _selectedMarker,
                     onMarkerTap: (marker) {
                       context.read<MapCubit>().selectMarker(marker);
                     },
-
                     userMarkerBuilder: (context, marker) {
                       return const Icon(
                         Icons.person_pin_circle,
@@ -83,30 +105,110 @@ class MapPageState extends State<MapPage> {
                         color: Colors.red,
                       );
                     },
-
                     otherMarkerBuilder: (context, marker, isSelected) {
                       return _buildMarkerIcon(marker, isSelected);
                     },
-                  );
-                },
-              ),
-            );
-          },
+                  ),
+
+                  if (routeState is RouteLoading)
+                    const Positioned(
+                      top: 50,
+                      left: 0,
+                      right: 0,
+                      child: Center(
+                        child: Card(
+                          child: Padding(
+                            padding: EdgeInsets.symmetric(
+                              horizontal: 20,
+                              vertical: 12,
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                SizedBox(
+                                  width: 20,
+                                  height: 20,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                  ),
+                                ),
+                                SizedBox(width: 12),
+                                Text('Loading route...'),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  if (route != null)
+                    Positioned(
+                      top: 40,
+                      left: 0,
+                      right: 0,
+                      child: RouteInfoCard(
+                        route: route,
+                        onClear: () {
+                          context.read<RouteCubit>().clearRoute();
+                        },
+                      ),
+                    ),
+                ],
+              );
+            },
+          ),
         ),
       ),
     );
   }
+
+  // ===========================================================================
+  // Marker Bottom Sheet
+  // ===========================================================================
 
   void _showMarkerBottomSheet(BuildContext context, MapMarkerData marker) {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (_) {
-        return _MarkerBottomSheet(marker: marker);
+      builder: (bottomSheetContext) {
+        return _MarkerBottomSheet(
+          marker: marker,
+          onShowRoute: () {
+            Navigator.pop(bottomSheetContext);
+
+            _requestRoute(context, marker);
+          },
+        );
       },
     );
   }
+
+  // ===========================================================================
+  // Route
+  // ===========================================================================
+
+  void _requestRoute(BuildContext context, MapMarkerData destination) {
+    final locationState = context.read<LocationCubit>().state;
+
+    if (locationState is! LocationLoaded) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Current location is not available yet.')),
+      );
+
+      return;
+    }
+
+    final start = locationState.mapLocation;
+
+    context.read<RouteCubit>().loadRoute(
+      start: start,
+      destination: destination.location,
+    );
+  }
+
+  // ===========================================================================
+  // Marker UI
+  // ===========================================================================
 
   Widget _buildMarkerIcon(MapMarkerData marker, bool isSelected) {
     final size = isSelected ? 34.0 : 28.0;
@@ -182,10 +284,15 @@ class MapPageState extends State<MapPage> {
   }
 }
 
+// =============================================================================
+// Marker Bottom Sheet
+// =============================================================================
+
 class _MarkerBottomSheet extends StatelessWidget {
   final MapMarkerData marker;
+  final VoidCallback onShowRoute;
 
-  const _MarkerBottomSheet({required this.marker});
+  const _MarkerBottomSheet({required this.marker, required this.onShowRoute});
 
   @override
   Widget build(BuildContext context) {
@@ -256,8 +363,7 @@ class _MarkerBottomSheet extends StatelessWidget {
             const SizedBox(height: 6),
 
             Text(
-              '${marker.location.lat}, '
-              '${marker.location.lng}',
+              '${marker.location.lat}, ${marker.location.lng}',
               style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w500),
             ),
 
@@ -265,7 +371,18 @@ class _MarkerBottomSheet extends StatelessWidget {
 
             SizedBox(
               width: double.infinity,
-              child: ElevatedButton(
+              child: ElevatedButton.icon(
+                onPressed: onShowRoute,
+                icon: const Icon(Icons.directions),
+                label: const Text('Show Route'),
+              ),
+            ),
+
+            const SizedBox(height: 8),
+
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton(
                 onPressed: () {
                   Navigator.pop(context);
                 },

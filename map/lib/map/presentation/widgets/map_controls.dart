@@ -5,6 +5,7 @@ class MapControls extends StatelessWidget {
   final VoidCallback onZoomOut;
   final VoidCallback onFitAll;
   final VoidCallback onLocateMe;
+  final VoidCallback? onFitRoute;
 
   const MapControls({
     super.key,
@@ -12,6 +13,7 @@ class MapControls extends StatelessWidget {
     required this.onZoomOut,
     required this.onFitAll,
     required this.onLocateMe,
+    this.onFitRoute,
   });
 
   @override
@@ -40,6 +42,16 @@ class MapControls extends StatelessWidget {
           onPressed: onFitAll,
           child: const Icon(Icons.fit_screen),
         ),
+
+        if (onFitRoute != null) ...[
+          const SizedBox(height: 8),
+
+          FloatingActionButton.small(
+            heroTag: 'fit_route',
+            onPressed: onFitRoute,
+            child: const Icon(Icons.route),
+          ),
+        ],
 
         const SizedBox(height: 16),
 

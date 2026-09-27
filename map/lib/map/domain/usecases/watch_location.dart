@@ -1,7 +1,7 @@
 import 'package:map/core/utils/usecase.dart';
 import 'package:map/map/domain/entities/map_location.dart';
 
-import 'package:map/map/domain/repositories/location_repo.dart';
+import 'package:map/map/domain/repositories/location_repository.dart';
 
 class GetLiveLocation extends StreamUsecaseWithoutParams<MapLocation> {
   final LocationRepository repo;

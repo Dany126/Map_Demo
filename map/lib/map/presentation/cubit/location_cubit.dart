@@ -3,7 +3,7 @@ import 'dart:async';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import 'package:map/map/domain/usecases/get_current_location.dart';
-import 'package:map/map/domain/usecases/get_live_location.dart';
+import 'package:map/map/domain/usecases/watch_location.dart';
 
 import 'location_state.dart';
 
