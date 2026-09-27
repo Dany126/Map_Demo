@@ -34,6 +34,7 @@ class LocationRepositoryImpl implements LocationRepository {
     }
   }
 
+  @override
   Stream<MapLocation> getLocationStream() async* {
     final permission = await _checkPermission();
 

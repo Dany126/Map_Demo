@@ -1,12 +1,13 @@
 import 'package:flutter/material.dart';
 
+import '../../domain/entities/map_location.dart';
 import '../../domain/entities/map_marker_data.dart';
 import '../../domain/entities/map_route.dart';
 import '../widgets/map_control_actions.dart';
 
 typedef UserMarkerBuilder = Widget Function(
   BuildContext context,
-  MapMarkerData marker,
+  MapLocation location,
 );
 
 typedef MarkerBuilder = Widget Function(

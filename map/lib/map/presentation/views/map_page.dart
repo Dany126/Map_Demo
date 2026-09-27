@@ -5,6 +5,11 @@ import 'package:map/core/di/injection_container.dart';
 import 'package:map/map/domain/entities/map_location.dart';
 import 'package:map/map/domain/entities/map_marker_data.dart';
 import 'package:map/map/domain/entities/map_route.dart';
+import 'package:map/map/presentation/config/map_camera_config.dart';
+import 'package:map/map/presentation/config/map_interaction_config.dart';
+import 'package:map/map/presentation/config/map_route_config.dart';
+import 'package:map/map/presentation/config/map_tile_config.dart';
+import 'package:map/map/presentation/config/map_view_config.dart';
 import 'package:map/map/presentation/config/map_widgets_config.dart';
 import 'package:map/map/presentation/cubit/location_cubit.dart';
 import 'package:map/map/presentation/cubit/location_state.dart';
@@ -14,6 +19,7 @@ import 'package:map/map/presentation/cubit/route_cubit.dart';
 import 'package:map/map/presentation/cubit/route_state.dart';
 import 'package:map/map/presentation/widgets/demo_marker.dart';
 import 'package:map/map/presentation/widgets/demo_marker_themes.dart';
+import 'package:map/map/presentation/widgets/map_controller_actions.dart';
 import 'package:map/map/presentation/widgets/map_marker_theme.dart';
 import 'package:map/map/presentation/widgets/map_view_body.dart';
 import 'package:map/map/presentation/widgets/marker_bottom_sheet.dart';
@@ -47,101 +53,146 @@ class MapPage extends StatelessWidget {
       ),
     ];
 
-    final mapConfig = MapWidgetsConfig(
-      // ------------------------------------------------
-      // VISIBILITY
-      // ------------------------------------------------
+    final mapConfig = MapViewConfig(
+      // =====================================================
+      // CAMERA
+      // =====================================================
 
-      showUserMarker: true,
-      showMarkers: true,
-      showRoute: true,
-      showControls: true,
-      showRouteInfo: true,
-      showRouteLoading: true,
-      showLocationLoading: true,
-      showLocationError: true,
-      showMarkerBottomSheet: true,
+      camera: const MapCameraConfig(initialZoom: 16, minZoom: 3, maxZoom: 19),
 
-      // ------------------------------------------------
-      // USER MARKER
-      // ------------------------------------------------
-      userMarkerBuilder: (context, marker) {
-        return const Icon(Icons.person_pin_circle, size: 45, color: Colors.red);
-      },
+      // =====================================================
+      // TILES
+      // =====================================================
+      tiles: const MapTileConfig(
+        show: true,
+        urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+        userAgentPackageName: 'com.example.map',
+      ),
 
-      // ------------------------------------------------
-      // OTHER MARKERS
-      // ------------------------------------------------
-      markerBuilder: (context, marker, isSelected) {
-        return DemoMarker(
-          marker: marker,
-          isSelected: isSelected,
-          theme: _getMarkerTheme(marker),
-        );
-      },
+      // =====================================================
+      // ROUTE
+      // =====================================================
+      route: const MapRouteConfig(
+        show: true,
+        color: Colors.blue,
+        strokeWidth: 5,
+      ),
 
-      // ------------------------------------------------
-      // ROUTE LOADING
-      // ------------------------------------------------
-      routeLoadingBuilder: (context) {
-        return const Center(
-          child: Card(
-            child: Padding(
-              padding: EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  SizedBox(
-                    width: 20,
-                    height: 20,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  ),
-                  SizedBox(width: 12),
-                  Text('Loading route...'),
-                ],
+      // =====================================================
+      // INTERACTIONS
+      // =====================================================
+      interactions: const MapInteractionConfig(
+        enableDrag: true,
+        enablePinchMove: true,
+        enablePinchZoom: true,
+        enableDoubleTapZoom: true,
+        enableScrollWheelZoom: true,
+        enableRotate: true,
+      ),
+
+      // =====================================================
+      // WIDGETS
+      // =====================================================
+      widgets: MapWidgetsConfig(
+        // ---------------------------------------------------
+        // VISIBILITY
+        // ---------------------------------------------------
+
+        showUserMarker: true,
+        showMarkers: true,
+        showRoute: true,
+        showControls: true,
+        showRouteInfo: true,
+        showRouteLoading: true,
+        showLocationLoading: true,
+        showLocationError: true,
+        showMarkerBottomSheet: true,
+
+        // ---------------------------------------------------
+        // USER MARKER
+        // ---------------------------------------------------
+        userMarkerBuilder: (context, location) {
+          return const Icon(
+            Icons.person_pin_circle,
+            size: 45,
+            color: Colors.red,
+          );
+        },
+
+        // ---------------------------------------------------
+        // OTHER MARKERS
+        // ---------------------------------------------------
+        markerBuilder: (context, marker, isSelected) {
+          return DemoMarker(
+            marker: marker,
+            isSelected: isSelected,
+            theme: _getMarkerTheme(marker),
+          );
+        },
+
+        // ---------------------------------------------------
+        // ROUTE LOADING
+        // ---------------------------------------------------
+        routeLoadingBuilder: (context) {
+          return const Center(
+            child: Card(
+              child: Padding(
+                padding: EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    ),
+                    SizedBox(width: 12),
+                    Text('Loading route...'),
+                  ],
+                ),
               ),
             ),
-          ),
-        );
-      },
+          );
+        },
 
-      // ------------------------------------------------
-      // ROUTE INFO
-      // ------------------------------------------------
-      routeInfoBuilder: (context, route) {
-        return RouteInfoCard(
-          route: route,
-          onClear: () {
-            context.read<RouteCubit>().clearRoute();
-          },
-        );
-      },
+        // ---------------------------------------------------
+        // ROUTE INFO
+        // ---------------------------------------------------
+        routeInfoBuilder: (context, route) {
+          return RouteInfoCard(
+            route: route,
+            onClear: () {
+              context.read<RouteCubit>().clearRoute();
+            },
+          );
+        },
 
-      // ------------------------------------------------
-      // LOCATION LOADING
-      // ------------------------------------------------
-      locationLoadingBuilder: (context) {
-        return const Center(child: CircularProgressIndicator());
-      },
+        // ---------------------------------------------------
+        // LOCATION LOADING
+        // ---------------------------------------------------
+        locationLoadingBuilder: (context) {
+          return const Center(child: CircularProgressIndicator());
+        },
 
-      // ------------------------------------------------
-      // LOCATION ERROR
-      // ------------------------------------------------
-      locationErrorBuilder: (context, message) {
-        return Center(
-          child: Padding(
-            padding: const EdgeInsets.all(24),
-            child: Text(message, textAlign: TextAlign.center),
-          ),
-        );
-      },
+        // ---------------------------------------------------
+        // LOCATION ERROR
+        // ---------------------------------------------------
+        locationErrorBuilder: (context, message) {
+          return Center(
+            child: Padding(
+              padding: const EdgeInsets.all(24),
+              child: Text(message, textAlign: TextAlign.center),
+            ),
+          );
+        },
 
-      // ------------------------------------------------
-      // MARKER BOTTOM SHEET
-      // ------------------------------------------------
-      markerBottomSheetBuilder: (context, marker, onShowRoute) {
-        return MarkerBottomSheet(marker: marker, onShowRoute: onShowRoute);
-      },
+        // ---------------------------------------------------
+        // MARKER BOTTOM SHEET
+        // ---------------------------------------------------
+        markerBottomSheetBuilder: (context, marker, onShowRoute) {
+          return MarkerBottomSheet(marker: marker, onShowRoute: onShowRoute);
+        },
+      ),
     );
 
     return Scaffold(
@@ -159,22 +210,22 @@ class MapPage extends StatelessWidget {
         ],
         child: MultiBlocListener(
           listeners: [
-            // --------------------------------------------
+            // =================================================
             // MARKER SELECTION
-            // --------------------------------------------
+            // =================================================
 
             BlocListener<MapCubit, MapState>(
               listener: (context, state) {
                 if (state is MapMarkerSelected &&
-                    mapConfig.showMarkerBottomSheet) {
+                    mapConfig.widgets.showMarkerBottomSheet) {
                   _showMarkerBottomSheet(context, state.marker, mapConfig);
                 }
               },
             ),
 
-            // --------------------------------------------
+            // =================================================
             // ROUTE ERROR
-            // --------------------------------------------
+            // =================================================
             BlocListener<RouteCubit, RouteState>(
               listener: (context, state) {
                 if (state is RouteError) {
@@ -205,11 +256,39 @@ class MapPage extends StatelessWidget {
 
                   return MapViewBody(
                     markers: markers,
+
                     route: route,
+
                     selectedMarker: selectedMarker,
+
+                    isRouteLoading: routeState is RouteLoading,
+
+                    onClearRoute: () {
+                      context.read<RouteCubit>().clearRoute();
+                    },
 
                     onMarkerTap: (marker) {
                       context.read<MapCubit>().selectMarker(marker);
+                    },
+
+                    onMapReady: (MapControllerActions actions) {
+                      // The map is now ready.
+                      //
+                      // You can store/use these
+                      // actions from an external
+                      // controller later.
+                      //
+                      // Example:
+                      //
+                      // actions.zoomIn();
+                      //
+                      // actions.moveTo(
+                      //   LatLng(
+                      //     30.0444,
+                      //     31.2357,
+                      //   ),
+                      //   zoom: 17,
+                      // );
                     },
 
                     config: mapConfig,
@@ -223,21 +302,21 @@ class MapPage extends StatelessWidget {
     );
   }
 
-  // =====================================================
+  // ===========================================================
   // MARKER BOTTOM SHEET
-  // =====================================================
+  // ===========================================================
 
   void _showMarkerBottomSheet(
     BuildContext context,
     MapMarkerData marker,
-    MapWidgetsConfig config,
+    MapViewConfig config,
   ) {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (bottomSheetContext) {
-        return config.markerBottomSheetBuilder?.call(
+        return config.widgets.markerBottomSheetBuilder?.call(
               bottomSheetContext,
               marker,
               () {
@@ -258,9 +337,9 @@ class MapPage extends StatelessWidget {
     );
   }
 
-  // =====================================================
+  // ===========================================================
   // REQUEST ROUTE
-  // =====================================================
+  // ===========================================================
 
   void _requestRoute(BuildContext context, MapMarkerData destination) {
     final locationState = context.read<LocationCubit>().state;
@@ -281,9 +360,9 @@ class MapPage extends StatelessWidget {
     );
   }
 
-  // =====================================================
+  // ===========================================================
   // MARKER THEME
-  // =====================================================
+  // ===========================================================
 
   static MapMarkerTheme _getMarkerTheme(MapMarkerData marker) {
     switch (marker.type) {
